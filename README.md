@@ -1,4 +1,12 @@
 # Birthday-Paradox-in-Malaysia
+## Authors  
+
+- **Ali Afkhami** - [LinkedIn](http://www.linkedin.com/in/ali-afkhami)  
+- **Daniela Mañozca Cruz** - [LinkedIn](https://www.linkedin.com/in/danielamanozcacruz)  
+- **Evan Losier**  
+- **Luisa Alejandra Sierra Guerra** - [LinkedIn](https://www.linkedin.com/in/alejandra-sierra-guerra-profile/)  
+- **Ruby Nouri Kermani** - [LinkedIn](https://www.linkedin.com/in/parnian-nouri-kermani-532b86198)  
+
 ## **Introduction:**
 
 The birthday paradox is mathematical phenomena which describes the probability of two people sharing the same birthday. The reason this phenomena is considered a paradox, is the fact that statistically the probability of two people sharing the same birthday is higher than what most people would expect.
