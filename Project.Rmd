@@ -1,0 +1,147 @@
+---
+title: "Project"
+output: pdf_document
+---
+
+**Introduction:**
+
+The birthday paradox is mathematical phenomena which describes the probability of two people sharing the same birthday. The reason this phenomena is considered a paradox, is the fact that statistically the probability of two people sharing the same birthday is higher than what most people would expect.
+The goal of this group project is to calculate the probability of the shared birthdays using two different approaches. The first approach is the **Exact Probability Formula** and the second approach is **Monte Carlo Simulation**.
+
+The following parts will discuss these approaches under various conditions:
+
+## Part 1.Exact Probability Using Combinatorial Formula
+
+The formula used for calculating the exact probability:
+
+$$1 - \frac{N! \cdot \binom{365}{N}}{365^N}$$ 
+
+Where N is the number of guests present at the party.
+
+
+```{r setup, include=FALSE}
+# Load necessary libraries
+library(knitr)
+library(ggplot2)
+```
+
+
+
+```{r probability_table, echo=FALSE}
+# Define function for probability calculation
+prob2share <- function(x) {
+  return (1 - (factorial(x) * choose(365, x) / 365 ** x))
+}
+
+# Compute probabilities for different values of N
+N_values <- c(20:29, seq(30, 40, by = 5))
+probabilities <- sapply(N_values, prob2share)
+
+# Create data frame
+prob_table <- data.frame(N =N_values, Probability = formatC(probabilities, format = "f", digits = 3))
+
+prob_table_t <- as.data.frame(t(prob_table))
+colnames(prob_table_t) <- prob_table_t[1,]
+prob_table_t <- prob_table_t[-1,]
+
+kable(prob_table_t, caption = "Probability of at Least Two Guests Sharing a Birthday")
+
+N_values1 <- c(seq(45, 100, by = 5))
+probabilities2 <- sapply(N_values1, prob2share)
+
+# Create data frame
+prob_table2 <- data.frame(N = N_values1, Probability = formatC(probabilities2, format = "f", digits = 3))
+
+prob_table_t2 <- as.data.frame(t(prob_table2))
+colnames(prob_table_t2) <- prob_table_t2[1,]
+prob_table_t2 <- prob_table_t2[-1,]
+
+kable(prob_table_t2)
+
+```
+
+
+
+
+
+```{r probability_plot, echo=FALSE, fig.cap="Probability of at Least Two Guests Sharing a Birthday"}
+# Threshold probability for visualization
+threshold <- 0.50
+N_threshold <- min(prob_table$N[prob_table$Probability >= threshold])
+
+# Create the probability plot
+ggplot(prob_table, aes(x = N, y = Probability)) +
+  geom_point(color = "purple", size = 3) +  
+  geom_line(color = "blue") +  
+  geom_hline(yintercept = threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  geom_vline(xintercept = N_threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  annotate("text", x = N_threshold + 4, y = threshold + 0.02, label = paste("N =", N_threshold), color = "black") + 
+  labs(title = "Probability of at Least Two Guests Sharing a Birthday",
+       x = "Number of Guests (N)", y = "Probability") +
+  theme_minimal()
+
+```
+
+According to figure 1, which depicts the probability of at least two guests in a party of N guests sharing the same birthday, when there is at least 23 guests at the party the probabality of at least 2 guests sharing the same birthday is more than 50%.
+
+## Part 2
+
+The probability that all $N$ people have unique birthdays
+$$P(\:no \:shared \:birthdays) = \frac{365}{365} \times \frac{364}{365} \times \frac{363}{365} \times ...\times \frac{365-N-1}{365}$$
+$$= \prod_{k = 0}^{N-1} (1 - \frac{k}{365})$$
+
+The probability that at least two people share a birthday:
+$$P(\:at \:least \:2 \:people \:share \:birthdays) = 1 - P(\:no \:shared \:birthdays)$$
+$$= 1 - \prod_{k = 0}^{N-1} (1 - \frac{k}{365})$$
+
+
+Performing the MonteCarlo Simulation with repetition of $R=10000$
+```{r}
+set.seed(598)
+
+getgaps <- function(b) {
+  gaps <- outer(b, b, function(x, y) pmin(abs(x - y), 365 - abs(x - y)))
+  diag(gaps) <- Inf 
+  min(gaps)
+}
+
+
+simulate_shared_birthdays <- function(N, R = 1000) {
+  shared_count <- 0
+  for (r in 1:R) {
+    birthdays <- sample(1:365, N, replace = TRUE) 
+    if (getgaps(birthdays) == 0) { 
+      shared_count <- shared_count + 1
+    }
+  }
+  return(shared_count / R)
+}
+
+
+N_values <- c(20:29, seq(30, 100, by = 5))
+results <- data.frame(
+  N = N_values,
+  Exact_Prob = sapply(N_values, simulate_shared_birthdays)
+)
+
+
+
+threshold <- 0.60
+N_threshold <- min(results$N[results$Exact_Prob >= threshold])
+
+
+library(ggplot2)
+ggplot(results, aes(x = N, y = Exact_Prob)) +
+  geom_point(color = "purple", size = 3) +  
+  geom_line(color = "orange") +  
+  geom_hline(yintercept = threshold, linetype = "dashed", color = "pink", linewidth = 1) +
+  geom_vline(xintercept = N_threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  annotate("text", x = N_threshold + 4, y = threshold + 0.02, label = paste("N =", N_threshold), color = "black") + 
+  labs(title = "Probability of at Least Two Guests Sharing a Birthday",
+       x = "Number of Guests (N)", y = "Probability") +
+  theme_minimal()
+
+```
+
+
+
