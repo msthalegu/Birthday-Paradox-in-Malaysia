@@ -1,0 +1,848 @@
+---
+title: "DATA 602 Project - The Birthday Paradox"
+author:
+- Ali Afkhami (30271805)
+- Daniela Mañozca Cruz (30262558)
+- Evan Losier (30022571)
+- Luisa Alejandra Sierra Guerra (30261956)
+- Ruby Nouri Kermani (30261323)
+date: "`r Sys.Date()`"
+header-includes:
+   - \usepackage{float}
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+geometry: margin=1in 
+fontsize: 11pt
+---
+
+```{r setup, include=FALSE}
+# Load necessary libraries
+# install.packages(c('knitr', 'ggplot2', 'tidyr', 'lubridate', 'dplyr'))
+library(knitr)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+library(dplyr)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, fig.pos="H", out.extra="", fig.width=8, fig.height=4)
+```
+
+## **Introduction:**
+
+The birthday paradox is mathematical phenomena which describes the probability of two people sharing the same birthday. The reason this phenomena is considered a paradox, is the fact that statistically the probability of two people sharing the same birthday is higher than what most people would expect.
+The goal of this group project is to calculate the probability of the shared birthdays using two different approaches. The first approach is the **Exact Probability Formula** and the second approach is **Monte Carlo Simulation**.
+
+The following parts will discuss these approaches under various conditions:
+
+## Part 1. Exact Probability Using Combinatorial Formula
+
+The formula used for calculating the exact probability:
+
+$$
+1 - \frac{N! \cdot \binom{365}{N}}{365^N}
+$$
+
+Where N is the number of guests present at the party.
+
+```{r part1_table}
+# Define function for probability calculation
+prob2share = function(x) {
+  return (1 - (factorial(x) * choose(365, x) / 365 ** x))
+}
+
+# Compute probabilities for different values of N
+N_values = c(20:29, seq(30, 40, by = 5))
+probabilities <- sapply(N_values, prob2share)
+
+# Create data frame
+prob_table = data.frame(N =N_values, Probability = formatC(probabilities, format = "f", digits = 3))
+
+prob_table_t = as.data.frame(t(prob_table))
+colnames(prob_table_t) = prob_table_t[1,]
+prob_table_t = prob_table_t[-1,]
+
+kable(prob_table_t, caption = "Probability of at Least Two Guests Sharing a Birthday")
+
+N_values1 = c(seq(45, 100, by = 5))
+probabilities2 = sapply(N_values1, prob2share)
+
+# Create data frame
+prob_table2 = data.frame(N = N_values1, Probability = formatC(probabilities2, format = "f", digits = 3))
+
+prob_table_t2 = as.data.frame(t(prob_table2))
+colnames(prob_table_t2) = prob_table_t2[1,]
+prob_table_t2 = prob_table_t2[-1,]
+
+kable(prob_table_t2)
+```
+
+
+
+
+
+```{r part1_plot, fig.cap="Probability of at Least Two Guests Sharing a Birthday Using Combinatorial Formula"}
+
+prob2share = function(x) {
+  return (1 - (factorial(x) * choose(365, x) / 365 ** x))
+}
+
+
+N_values = c(20:29, seq(30, 100, by = 5))
+probabilities = sapply(N_values, prob2share)
+prob_table = data.frame(N = N_values, Probability = probabilities)
+
+
+threshold = 0.50
+N_threshold = min(prob_table$N[prob_table$Probability >= threshold])
+
+ggplot(prob_table, aes(x = N, y = Probability)) +
+  geom_point(color = "purple", size = 3) +  
+  geom_line(color = "blue") +  
+  geom_hline(yintercept = threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  geom_vline(xintercept = N_threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  annotate("text", x = N_threshold + 4, y = threshold + 0.02, label = paste("N =", N_threshold), color = "black") + 
+  labs(title = "Probability of at Least Two Guests Sharing a Birthday",
+       x = "Number of Guests (N)", y = "Probability") +
+  theme_minimal()
+```
+
+According to table 1, which depicts the probability of at least two guests in a party of N guests sharing the same birthday, when there is at least 23 guests at the party the probability of at least 2 guests sharing the same birthday is more than 50%.
+
+<!-- \pagebreak -->
+
+## Part 2. Probability Using Monte-Carlo Simulation
+
+The probability that all $N$ people have unique birthdays
+$$
+P(\text{no shared birthdays}) = \frac{365}{365} \times \frac{364}{365} \times \frac{363}{365} \times ...\times \frac{365-N-1}{365}
+$$
+
+$$
+= \prod_{k = 0}^{N-1} (1 - \frac{k}{365})
+$$
+
+The probability that at least two people share a birthday:
+$$
+P(\text{at least 2 people share birthdays}) = 1 - P(\text{no shared birthdays})
+$$
+
+$$
+= 1 - \prod_{k = 0}^{N-1} (1 - \frac{k}{365})
+$$
+
+
+Performing the Monte-Carlo Simulation with repetition of $R=10000$
+
+```{r part2_plot, fig.cap="Probability of at Least Two Guests Sharing a Birthday Using Monte-Carlo Simulation"}
+set.seed(598)
+
+getgaps = function(b) {
+  gaps = outer(b, b, function(x, y) pmin(abs(x - y), 365 - abs(x - y)))
+  diag(gaps) = Inf 
+  min(gaps)
+}
+
+
+simulate_shared_birthdays = function(N, R = 10000) {
+  shared_count = 0
+  for (r in 1:R) {
+    birthdays = sample(1:365, N, replace = TRUE) 
+    if (getgaps(birthdays) == 0) { 
+      shared_count = shared_count + 1
+    }
+  }
+  return(shared_count / R)
+}
+
+
+N_values = c(20:29, seq(30, 100, by = 5))
+results = data.frame(
+  N = N_values,
+  Exact_Prob = sapply(N_values, simulate_shared_birthdays)
+)
+
+threshold = 0.50
+N_threshold = min(results$N[results$Exact_Prob >= threshold])
+
+ggplot(results, aes(x = N, y = Exact_Prob)) +
+  geom_point(color = "purple", size = 3) +  
+  geom_line(color = "orange") +  
+  geom_hline(yintercept = threshold, linetype = "dashed", color = "pink", linewidth = 1) +
+  geom_vline(xintercept = N_threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  annotate("text", x = N_threshold + 4, y = threshold + 0.02, label = paste("N =", N_threshold), color = "black") + 
+  labs(title = "Probability of at Least Two Guests Sharing a Birthday",
+       x = "Number of Guests (N)", y = "Probability") +
+  theme_minimal()
+
+```
+
+
+Figure 2, illustrates the probability of two guests sharing the same birthday in a party of N guests using the Monte-Carlo simulation. In comparison to the **combinatorial formula**, which provides a precise probability, **Monte Carlo simulation**, estimates the probability by performing multiple random simulations. This is the reason that the value of N resulted from the Monte Carlo simulation is different from the combinatorial formula. Furthermore, the Monte Carlo simulation provides an estimate and contains the element of randomness. In order to reduce the difference between the Monte Carlo simulation and combinatorial formula, one can increase the number of simulations.
+
+## Part 3. 
+
+The random variable $Y_{i}$ is defined as:
+
+$$
+Y_i =
+\begin{cases}
+1, & \text{if Guest } i \text{ has at least 1 birth-mate,} \\
+0, & \text{otherwise,}
+\end{cases}
+$$
+
+
+The Expected Value $E(Y)$ is:
+$$
+E(Y) = \sum_{i = 1}^{N} E(Y_{i})
+$$
+
+If guest $i$ does not have any birth-mates: $P(Y_{i} = 0) = (\frac{364}{365})^{N-1}$
+
+If guest $i$ has at least 1 birth-mate: $P(Y_{i} = 1) = 1 - (\frac{364}{365})^{N-1}$
+
+Therefore the Expected Value $E(Y)$ can be calculated as:
+
+$$
+E(Y) = \sum_{i = 1}^{N} E(Y_{i}) = N \cdot (1 - (\frac{364}{365})^{N-1})
+$$
+
+
+We use the Monte-Carlo Simulations to compute the expected value of **the number of guests who have birth-mates**
+
+```{r part3_table}
+set.seed(2025)
+expected_value_Y = function(N) {
+  N * (1 - (364/365)^(N-1))
+}
+
+simulate_Y = function(N, R = 10000) {
+  birthmate_counts = replicate(R, {
+    birthdays = sample(1:365, N, replace = TRUE)
+    sum(sapply(birthdays, function(bday) sum(birthdays == bday) > 1))
+  })
+  mean(birthmate_counts)
+}
+
+
+N_values = c(20:29, seq(30, 100, by=5))
+results = data.frame(
+  N = N_values,
+  Analytical_EY = sapply(N_values, expected_value_Y),
+  MonteCarlo_EY = sapply(N_values, simulate_Y)
+)
+kable(results, caption = "Analytical and Monte-Carlo Expected Value of birth-mates ")
+```
+
+
+The minimum number of $N$ which have at least 2 guests to have birth-mates:
+
+```{r part3_calc}
+min_N = ceiling(min(results$N[results$Analytical_EY >= 1]))
+cat("The minimum number of guests where E(Y) >= 1 is:", min_N)
+```
+
+The result is not surprising because of the following reasons:
+
+* As $N$ increases, the probability of birth-mates increases.
+
+* It is surprising because the number of guests required $(20)$ is relatively small compared to the total number of days in a year $(365)$.
+
+* This result is a consequence of the birthday problem, which shows that shared birthdays become likely even in small groups due to the combination nature of the problem.
+
+* The intuition that shared birthdays are rare is often incorrect because people underestimate the number of possible pairs of guests that can share a birthday.
+
+
+```{r part3_plot, fig.cap="Expected value of unique sets of birth-mates"}
+#threshold_N = N minimal Analytical
+#threshold_MC_N = N minimal Monte Carlo
+
+threshold_N <- results %>%
+  filter(Analytical_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+threshold_MC_N <- results %>%
+  filter(MonteCarlo_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+ggplot(results, aes(x = N)) +
+  geom_line(aes(y = Analytical_EY, color = "Analytical E(Y)"), size = 1.2) +  
+  geom_line(aes(y = MonteCarlo_EY, color = "Monte Carlo E(Y)"), size = 1.2) +  
+  geom_vline(xintercept = threshold_N, linetype = "dashed", color = "darkblue", size = 1.2) +  
+  geom_vline(xintercept = threshold_MC_N, linetype = "dashed", color = "green", size = 0.9) +  
+  annotate("text", x = threshold_N + 2,  
+           y = max(results$Analytical_EY, na.rm = TRUE) * 0.9,  
+           label = paste("N=", threshold_N), 
+           color = "darkblue", hjust = 0) + 
+  annotate("text", x = threshold_MC_N + 2,  
+           y = max(results$MonteCarlo_EY, na.rm = TRUE) * 0.5,  
+           label = paste("N=", threshold_MC_N), 
+           color = "green", hjust = 0) + 
+
+  scale_color_manual(values = c("Analytical E(Y)" = "darkblue", "Monte Carlo E(Y)" = "green")) +  
+  labs(title = "Expected Number of Guests with Birth-mates (E(Y))",
+       x = "Number of Guests (N)", 
+       y = "Expected Number of Guests with Birth-mates",
+       color = "Legend") +
+  theme_minimal()
+```
+
+
+Figure 3 illustrates the expected number of guests with birth-mates using **Monte-Carlo Simulation** and the **Expected Value**. As $N$ increases, $E(Y)$ also rises, indicating a higher probability of guests sharing birthdays. By $N = 100$, $E(Y)$ becomes significantly larger, demonstrating that in larger groups, shared birthdays are almost certain. This steep increase occurs because the number of possible birthday pairs grows much faster as the number of guests increases, making shared birthdays increasingly likely. This phenomenon often surprises people, as it feels counter intuitive that shared birthdays become so probable even in relatively small groups. The graph effectively captures this transition, highlighting the fascinating nature of probability in real-world scenarios.
+
+
+
+## Part 4. Validity of the Assumption of a Uniform Birthday Distribution (Real Data)
+
+For verifying this assumption, we will use the Malaysia dataset that provides daily count of births from 1920 to 2022. The data will be summarized in terms of the following statistics:
+
+$$
+\text{Average \# of births on day j of month k} = 
+$$
+
+$$
+\small
+\sum_{m=1}^{M} (\text{\# of births on day j of month k in year m}) \times \frac{(\text{total \# of births on day j of month k over M years})}{(\text{total \# of births in month k over M years}}
+$$
+
+$$
+\text{Average daily birth frequency in month k} =
+$$
+
+$$
+\small
+\sum_{m=1}^{M} (\frac{(\text{\# of births on day j of month k in year m)}}{\text{(\# of days in month k)}} \times \frac{(\text{total \# of births in month k over M years})}{(\text{total \# of births over M year})}
+$$
+
+for $\text{j=1 (Monday),...,7(Sunday)}$  and for $\text{k=1 (January),...,12(December)}$, where $m \in{1,...,M}$ indicates the year for which data on daily live births were obtained. 
+
+
+```{r part4_table1, fig.cap="Validity of Uniform birthday distribution (days of the week)"}
+
+#data_bd <- read.csv("births.csv")
+data_bd <- read.csv("https://storage.data.gov.my/demography/births.csv")
+
+# Convert birthdays to Date format
+data_bd$date <- as.Date(data_bd$date, format = "%Y-%m-%d")
+
+# Filter for dates: To take only possible live people
+#Original df contains data from 1920
+data_bd <- data_bd %>%
+  filter(date >= as.Date("1994-01-01"))
+
+# Extract the day of the week
+data_bd$Day_of_Week <- weekdays(data_bd$date)
+
+#Extract the month
+data_bd$Month<-format(data_bd$date, "%m")
+
+#Extract the year
+data_bd$Year<-format(data_bd$date, "%Y")
+data_bd <- data_bd[!(data_bd$Year == "2023"),]
+
+
+#Total bdys per month in all the years
+data_grp_month=data_bd%>% group_by(Month)  %>%
+                    summarise(total_bd = sum(births))
+
+
+#Total bdys per day per month in all the years
+data_grp_dm=data_bd%>% group_by(Day_of_Week,Month)  %>%
+                    summarise(total_bd = sum(births))
+
+#Total bdys per day per month for every year (specific)
+data_grp_dmy=data_bd%>% group_by(Year,Month, Day_of_Week)  %>%
+                    summarise(total_bd = sum(births))
+
+#Average # of births on j weekdays of month k
+
+num_years <- length(unique(data_grp_dmy$Year))
+
+# Calculate the average number of births per weekday for each month
+avg_births_per_weekday_month <- data_bd %>%
+  group_by(Month, Day_of_Week) %>%
+  summarise(avg_bd = sum(births) / num_years) %>%
+  arrange(Month, Day_of_Week)  # Arrange for better readability
+
+# Display the summary table
+avg_births_per_weekday_month_wide <- avg_births_per_weekday_month %>%
+  pivot_wider(names_from = Day_of_Week, values_from = avg_bd, 
+              values_fill = list(avg_bd = 0))  
+
+avg_births_per_weekday_month_wide <- avg_births_per_weekday_month_wide %>%
+  select(Month, `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`, `Saturday`, `Sunday`)
+
+# Name the columns
+colnames(avg_births_per_weekday_month_wide) <- c("Month", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+# Final table
+kable(avg_births_per_weekday_month_wide, caption = "Average Number of Births on Weekdays for Each Month")
+```
+
+```{r part4_plot1, fig.cap="Validity of uniform birthday distribution (days of the week)"}
+#Creating a new df 
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month %>%
+  transmute(Month_Day = paste(Month, Day_of_Week, sep = ","), avg_bd)
+avg_births_per_weekday_month_unified$Month <- NULL
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified[order(avg_births_per_weekday_month_unified$Month_Day), ]
+
+
+#Plot 
+color_map <- c("01" = "red", "02" = "blue", "03" = "green", "04" = "purple", "05" = "orange",
+               "06" = "pink", "07" = "brown", "08" = "cyan", "09" = "magenta", "10" = "yellow",
+               "11" = "gray", "12" = "black")
+
+
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified %>%
+  mutate(Month_Prefix = substr(as.character(Month_Day), 1, 2)) %>%
+  mutate(Color = color_map[Month_Prefix])
+
+
+avg_births_per_weekday_month_unified$Month_Prefix <- factor(avg_births_per_weekday_month_unified$Month_Prefix, levels = names(color_map))
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified %>%
+  mutate(Month_Day = gsub("Monday", "1", Month_Day),
+         Month_Day = gsub("Tuesday", "2", Month_Day),
+         Month_Day = gsub("Wednesday", "3", Month_Day),
+         Month_Day = gsub("Thursday", "4", Month_Day),
+         Month_Day = gsub("Friday", "5", Month_Day),
+         Month_Day = gsub("Saturday", "6", Month_Day),
+         Month_Day = gsub("Sunday", "7", Month_Day))
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified %>%
+  arrange(as.numeric(sub(",", "", Month_Day))) 
+
+ggplot(avg_births_per_weekday_month_unified, aes(x = as.factor(Month_Day), y = avg_bd, fill = Month_Prefix)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = color_map, name = "Month", labels = names(color_map)) +  
+  theme_minimal() +
+  labs(x = "The first bar of each color is Monday, and the last is Sunday", 
+       y = "Average Births", 
+       title = "Distribution of Births Across the Days of the Week") +
+  theme(axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank()) 
+```
+
+
+
+```{r part4_plot2, fig.cap="Validity of uniform birthday distribution (months)"}
+
+#Total births per month 
+data_grp_month <- data_bd %>%
+  group_by(Month) %>%
+  summarise(Total_Births = sum(births)) 
+
+# Number of days for every month
+days_per_month <- data_bd %>%
+  group_by(Month) %>%
+  summarise(Days = ifelse(Month == "02", 28, max(day(date))), .groups = "drop")  # We are not considering leap years in this paradox
+
+# Compute average daily birth frequency
+avg_daily_births_per_month <- data_grp_month %>%
+  left_join(days_per_month, by = "Month") %>%
+  distinct(Month, .keep_all = TRUE) %>%
+  mutate(AVG_daily_births = Total_Births / Days) %>%
+  arrange(Month)
+
+# Display the summary table
+kable(avg_daily_births_per_month, caption = "Average daily births per Month")
+
+# Display the summary table
+color_map <- c("01" = "red", "02" = "blue", "03" = "green", "04" = "purple", "05" = "orange",
+               "06" = "pink", "07" = "brown", "08" = "cyan", "09" = "magenta", "10" = "yellow",
+               "11" = "gray", "12" = "black")
+
+ggplot(avg_daily_births_per_month, aes(x = Month, y = AVG_daily_births, fill = Month)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = color_map) +  #
+  labs(title = "Average Daily Birth Frequency for Each Month",
+       x = "Month", y = "Average Births") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(fill = "none") 
+```
+
+The Chi-Square Goodness of Fit Test is a statistical test used to analyze the difference between the observed and expected frequency distribution values in categorical data.The chi-square goodness of fit test is used to measure the significant difference between the expected and observed frequencies under the null hypothesis that there is no difference between the expected and observed frequencies.The test will be perform to validate if birthdays followed a uniform distribution between 1994 and 2022 in Malaysia.
+
+- **Null Hypothesis (H0)**: The observed data follows a uniform distribution.
+
+- **Alternative Hypothesis (H1)**: The observed data does not follow a uniform distribution.
+
+```{r part4_chitest, fig.cap="Validity of uniform birthday distribution (365 days)"}
+
+#Remove All Leap Year Records
+data_bd <- data_bd %>%
+  filter(!leap_year(date))  # Removes records from leap years
+
+# Extract Day of the Year (1-365)
+data_bd$Day_of_year <- yday(data_bd$date)
+
+#Grouping data by day of the year
+data_dayofY <- data_bd %>%
+  group_by(Day_of_year) %>%
+  summarise(total_bd = sum(births)) 
+
+expected_probabilities <- rep(1 / 365, 365)  # Equal probability for each day
+expected_counts <- sum(data_dayofY$total_bd) * expected_probabilities  # Scale to observed total
+data_dayofY$expected_bd <- expected_counts  
+
+#Plotting data - we should compare this with the expected uniform distribution
+ggplot(data_dayofY, aes(x = Day_of_year, y = total_bd)) +
+  geom_bar(stat = "identity", position = "dodge",fill="lightblue",color="blue") +
+  geom_line(aes(y = expected_bd), color = "red", size = 1, linetype = "dashed") +
+  labs(title = "Total births over day of the year from 1994 to 2022 in Malaysia",
+       x = "Day of the Year", y = "Total births") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#Expected counts (uniform distribution)
+expected_probabilities <- rep(1 / 365, 365)  # Equal probability for each day
+expected_counts <- sum(data_dayofY$total_bd) * expected_probabilities  # Scale to observed total
+
+# Chi-Square Test
+chi_test <- chisq.test(x = data_dayofY$total_bd, p = expected_probabilities)
+print(chi_test)
+```
+
+The **Chi square test** shows high discrepancy between the real data and the expected data. In this test the null hypothesis assumed that births are equally likely on any day of the year.However, the test strongly rejects this assumption, since p-value is extremely low, close to 0 $(2.2e-16)$, which is less than the significance level $0.05$, meaning births are not uniformly distributed across the year.Some days have more births than expected, while others have fewer.This can also be confirmed in the graph, since the red line wich represents the uniform distribution is far from the real behavior represented by the blue bars.
+
+
+## Part 5. Validity of the Assumption of a Uniform Birthday Distribution (Using Smoothed Real Data)
+
+After verifying the presence of a weekly cyclical pattern in daily births, we now investigate whether smoothing the data—by applying a 7-day moving average—can support the assumption of a uniform distribution of births.
+
+The first step involves smoothing the data per day using a 7-day moving average:
+
+$$
+\text{Smoothed}(d) = \frac{\sum_{i=0}^6 \text{Value}(d + i)}{7}
+$$
+
+Next, we organize the probabilities by week. The probability $P_\ell$ of a birth occurring in week $\ell$ is defined as:
+
+$$
+P_\ell = P(\text{a birth occurs on week } \ell) =
+\begin{cases}  
+\sum_{j=7\ell - 6}^{7\ell} p_j = \frac{7}{365}, & \text{for } \ell = 1, \dots, 51 \\  
+\sum_{j=358}^{365} p_j = \frac{8}{365}, & \text{for } \ell = 52  
+\end{cases}
+$$
+
+Here, weeks 1 to 51 have 7 days each ($\frac{7}{365}$), and week 52 has 8 days ($\frac{8}{365}$).
+
+To assess whether the smoothed data follows a uniform distribution, we first compare the observed smoothed probabilities with the expected probabilities under a uniform distribution. The expected probabilities are:
+
+$$
+\text{Expected Probability} = \left( \text{rep}\left(\frac{7}{365}, \text{times} = 51\right), \frac{8}{365} \right)
+$$
+
+```{r part5_plot1, fig.cap="Validity of the assumption of a weekly uniform birthdate distribution by smoothing real data"}
+
+#data_bd <- read.csv("births.csv")
+data_bd <- read.csv("https://storage.data.gov.my/demography/births.csv")
+
+# Convert birthdays to Date format
+data_bd$date <- as.Date(data_bd$date, format = "%Y-%m-%d")
+
+# Filter for dates: To take only possible live people
+#Original df contains data from 1920
+data_bd <- data_bd %>%
+  filter(date < as.Date("2023-01-01"))
+
+data_bd$date <- as.Date(data_bd$date, format = "%Y-%m-%d")
+data_bd <- data_bd %>%                    #Remove All Leap Year Records
+  filter(!leap_year(date))                #Removes ALL records from leap years
+data_bd$Day_of_year <- yday(data_bd$date) #Extract Day of the Year (1-365)
+data_dayofY <- data_bd %>%                #Grouping data by day of the year
+  group_by(Day_of_year) %>%
+  summarise(total_bd = sum(births)) 
+
+
+#Function to apply a 7-day moving average smoothing to daily data
+smooth_day <- function(x) {
+  x$Smoothed <- NA                      # Initialize a new column for smoothed values
+  n_days <- 365                         #Total number of days in a non-leap year
+  for (i in 1:n_days) {                 #Iterate over each day of the year
+    # Calculate indices for the 7-day window, wrapping around to the start of the year if necessary
+    indices <- (i - 1 + 0:6) %% n_days + 1
+    # Compute the mean of the 7-day window and store it in the Smoothed column
+    x$Smoothed[i] <- mean(x$total_bd[indices])
+  }
+  return(x)
+}
+Data_Smooth_day <- smooth_day(data_dayofY) #Apply the smoothing function to the daily data
+
+
+#Function to create a weekly smoothed df
+create_smooth_week <- function(data) {
+  Week <- c()                      #Initialize vectors to store weekly results
+  Week_smoothed <- c()
+
+  for (week in 1:52) {             #Iterate over each week of the year
+    if (week <= 51) {              #Weeks 1 to 51: use 7 days
+      start <- (week - 1) * 7 + 1  #Starting index for the week
+      end <- start + 6             #Ending index for the week
+      smoothed_values <- data$Smoothed[start:end]  # Extract smoothed values for the week
+      Week_smoothed <- c(Week_smoothed, mean(smoothed_values)) # Calculate the weekly average
+    } else {  # Week 52: use 8 days to account for the remaining days in the year
+      start <- (week - 1) * 7 + 1
+      end <- start + 7
+      smoothed_values <- data$Smoothed[start:end]
+      Week_smoothed <- c(Week_smoothed, mean(smoothed_values))
+    }
+    Week <- c(Week, paste("Week", week))#Label the week ("Week 1", "Week 2")
+  }
+  Smooth_week <- data.frame( #Create the weekly smoothed dataframe
+    Week = Week,
+    Week_smoothed = Week_smoothed
+  )
+  
+  return(Smooth_week)
+}
+
+# Apply the weekly smoothing function to the smoothed daily data
+Smooth_week <- create_smooth_week(Data_Smooth_day)
+
+#Prepare for Plot 
+Smooth_week <- Smooth_week %>% #Create a new column with week numbers by extracting numeric values from the "Week" column
+  mutate(N_Week = as.numeric(gsub("Week ", "", Week)))  
+
+Smooth_week <- Smooth_week %>% #Organize the df 
+  select(N_Week, everything(), -Week)
+
+Smooth_week <- Smooth_week %>% #Create a new column with the percentage of births per week 
+  mutate(Percentage = (Week_smoothed / sum(Week_smoothed)))
+
+#Expected probability 
+expected <- c(rep(7/365, 51), 8/365)
+
+par(mar = c(5, 5, 4, 2))  
+bp <- barplot(Smooth_week$Percentage, 
+              main = "Smoothed Probability of Births by Week from 1994 to 2022",
+              xlab = "Week of the Year", 
+              ylab = "Density", 
+              col = 'azure2')
+
+axis(1, at = bp[seq(0, length(bp), by = 5)], 
+     labels = Smooth_week$N_Week[seq(0, length(Smooth_week$N_Week), by = 5)], 
+     las = 1)
+
+lines(bp, expected, type = "l", col = 'deeppink', lwd = 4)
+legend("topright", legend = c("Smoothed Probability. (Real Data)", "Expected Probability. (Uniform Distribution)"),
+       col = c("azure2", "deeppink"), lwd = c(10, 4), bty = "n", xpd = TRUE, inset = c(-1.05, 0))
+```
+
+The plot of the smoothed probabilities shows a trend similar to the expected uniform distribution, suggesting that smoothing the data may align it with a uniform distribution. 
+
+To confirm this, we perform a chi-square goodness-of-fit test with the following hypotheses:
+
+- **Null Hypothesis (H0)**: The observed data follows a uniform distribution.
+
+- **Alternative Hypothesis (H1)**: The observed data does not follow a uniform distribution.
+
+```{r part5_chiprint}
+chi = chisq.test(x=Smooth_week$Percentage, p=expected)
+print(chi)
+```
+
+The test results yield a p-value of 1 (> 0.05), which means we fail to reject the null hypothesis (H0). This indicates that, after smoothing, the data is consistent with a uniform distribution.
+
+
+## Part 6. Non-Uniform Distribution of Birthdays
+
+For the final part of our analysis, we will look at how the probability of $N$ people sharing a birthday changes if the distribution of birthdays is non-uniform.
+
+To do this, we will split the birth data from Malaysia into 7 groups of different sizes.
+
+```{r part6_calc1}
+# Load the Malaysia births dataset,
+# filter out February 29th (Every year shoud be 365 days for simplicity)
+# and filter out 2023 (The dataset only contains partial information for this year)
+#realdata = read.csv("births.csv")
+realdata = read.csv("https://storage.data.gov.my/demography/births.csv")
+realdata = realdata[!(substr(realdata$date, 6,10) == "02-29"),]
+realdata = realdata[!(substr(realdata$date, 1,4) == "2023"),]
+
+# Extract numerical values for Year, Month, and Day to be available for access in their own columns
+realdata["Year"] = as.numeric(substr(realdata$date, 1,4))
+realdata["Month"] = as.numeric(substr(realdata$date, 6,7))
+realdata["Day"] = as.numeric(substr(realdata$date, 9,10))
+
+# Calculate the total number of years included
+minyear = min(realdata$Year)
+maxyear = max(realdata$Year)
+M = maxyear - minyear + 1
+
+# Calculate the days contained in each non-uniform group
+allbirths = sum(realdata$births)
+d1 = length(realdata[realdata$Month == 12 | realdata$Month == 1 | realdata$Month == 2,]$births) / M
+d2 = length(realdata[realdata$Month == 3,]$births) / M
+d3 = length(realdata[realdata$Month == 4,]$births) / M
+d4 = length(realdata[realdata$Month == 5,]$births) / M
+d5 = length(realdata[realdata$Month >= 6 & realdata$Month <= 9,]$births) / M
+d6 = length(realdata[realdata$Month == 10,]$births) / M
+d7 = length(realdata[realdata$Month == 11,]$births) / M
+ds = c(d1, d2, d3, d4, d5, d6, d7)
+
+# Calculate the proportion of births in each non-uniform group
+pi1 = sum(realdata[realdata$Month == 12 | realdata$Month == 1 | realdata$Month == 2,]$births) / (allbirths * d1)
+pi2 = sum(realdata[realdata$Month == 3,]$births) / (allbirths * d2)
+pi3 = sum(realdata[realdata$Month == 4,]$births) / (allbirths * d3)
+pi4 = sum(realdata[realdata$Month == 5,]$births) / (allbirths * d4)
+pi5 = sum(realdata[realdata$Month >= 6 & realdata$Month <= 9,]$births) / (allbirths * d5)
+pi6 = sum(realdata[realdata$Month == 10,]$births) / (allbirths * d6)
+pi7 = sum(realdata[realdata$Month == 11,]$births) / (allbirths * d7)
+pis = c(pi1, pi2, pi3, pi4, pi5, pi6, pi7)
+
+pi_table = data.frame(Group=c(1:7), Size=ds, Probability=formatC(pis, format="f", digits=5))
+pi_table_t = as.data.frame(t(pi_table))
+rownames(pi_table_t) = c("Group (s)", "Size (delta)", "Probability (pi)")
+
+kable(pi_table_t, caption="Probability that a birthday falls on a day within each group.", col.names=NULL)
+```
+
+Next, instead of using the probability function from part 1 which assumed a normal distribution of birthdays, we have to account for the different chances that the $N$ people belong to different combinations of groups. For example, with $N = 5$ people, there are $\binom{5+7-1}{5}$ $= 462$ different ways of splitting the guests into different groups. For example, we can enumerate these possibilities for $N = 5$ starting with $(1, 1, 1, 1, 1)$ (all five people born in group 1), continuing with $(1, 1, 1, 1, 2)$ (four people born in group 1 and one person born in group 2), etc. and ending with $(7, 7, 7, 7, 7)$ (all five people being born in group 7), ensuring no enumeration is repeated by enforcing that the numbers in any one possibility are always sorted (for example, the possibility that one person is born in each of groups 2, 4, and 7 while two people are born in group 5 will only be enumerated once, and be listed as $(2, 4, 5, 5, 7)$).
+
+To calculate the probability that all $N$ guests have **distinct** birthdays, we adapt the formula used in part 1 ($N! \cdot \binom{365}{N}\cdot\frac{1}{365^N}$) to be used in a non-uniform distribution. The result is $N! \cdot \sum_{n\in\beta}(\prod_{s=1}^{7}\binom{\delta_s}{n_s}\pi_s^{n_s})$ where $\delta_s$ is the number of days contained in group $s$, $n_s$ is the number of people who have a birthday in group $s$ within enumeration $n$, $\pi_s$ is the probability that a birthday falls on a day within group $s$, and $\beta$ is the list of all $\binom{N+7-1}{N}$ ways to organize $N$ people into $7$ groups. Finally, we subtract our result for distinct birthdays from $1$ to get the probability that at least two of the $N$ people share a birthday.
+```{r part6_calc2}
+# For the enumerations, combn wasn't used because it doesn't include duplicate
+# group numbers. The output of combn gave us enumerations of the form
+# (1, 2, 3, 4, 5), (1, 2, 3, 4, 6), ..., (7, 8, 9, 10, 11) which wasn't useful
+# for our analysis, because we couldn't translate the outputs into the number
+# of people in each of 7 distinct groups. We needed an output of
+# (1, 1, 1, 1, 1), (1, 1, 1, 1, 2), ..., (7, 7, 7, 7, 7), which was accomplished
+# by filtering the output of expand.grid to include sorted subsets only.
+
+# Enumerate the different ways 5 people can fall into the 7 non-uniform groups
+comb5 = expand.grid((1:7),(1:7),(1:7),(1:7),(1:7))
+comb5 = comb5[!apply(comb5, 1, is.unsorted),]
+row.names(comb5) = NULL
+
+# Enumerate the different ways 6 people can fall into the 7 non-uniform groups
+comb6 = expand.grid((1:7),(1:7),(1:7),(1:7),(1:7),(1:7))
+comb6 = comb6[!apply(comb6, 1, is.unsorted),]
+row.names(comb6) = NULL
+
+# Enumerate the different ways 7 people can fall into the 7 non-uniform groups
+comb7 = expand.grid((1:7),(1:7),(1:7),(1:7),(1:7),(1:7),(1:7))
+comb7 = comb7[!apply(comb7, 1, is.unsorted),]
+row.names(comb7) = NULL
+
+# Calculate the probability that 5 people have at least one shared birthday
+sum5 = 0
+for (i in (1:length(comb5$Var1))) {
+  rowdf = comb5[i,]
+  prod5 = 1
+  for (j in (1:7)) {
+    rowsum = sum(rowdf[rowdf == j]) / j
+    chs = choose(ds[j], rowsum)
+    pin = pis[j] ** rowsum
+    prod5 = prod5 * (chs * pin)
+  }
+  sum5 = sum5 + prod5
+}
+res5 = 1 - (factorial(5) * sum5)
+
+# Calculate the probability that 6 people have at least one shared birthday
+sum6 = 0
+for (i in (1:length(comb6$Var1))) {
+  rowdf = comb6[i,]
+  prod6 = 1
+  for (j in (1:7)) {
+    rowsum = sum(rowdf[rowdf == j]) / j
+    chs = choose(ds[j], rowsum)
+    pin = pis[j] ** rowsum
+    prod6 = prod6 * (chs * pin)
+  }
+  sum6 = sum6 + prod6
+}
+res6 = 1 - (factorial(6) * sum6)
+
+# Calculate the probability that 7 people have at least one shared birthday
+sum7 = 0
+for (i in (1:length(comb7$Var1))) {
+  rowdf = comb7[i,]
+  prod7 = 1
+  for (j in (1:7)) {
+    rowsum = sum(rowdf[rowdf == j]) / j
+    chs = choose(ds[j], rowsum)
+    pin = pis[j] ** rowsum
+    prod7 = prod7 * (chs * pin)
+  }
+  sum7 = sum7 + prod7
+}
+res7 = 1 - (factorial(7) * sum7)
+
+# Use the uniform distribution formula created in part 1 to compare the
+# probability of 5, 6, or 7 people have at least one shared birthday.
+p2s5 = prob2share(5)
+p2s6 = prob2share(6)
+p2s7 = prob2share(7)
+```
+
+```{r part6_plot, fig.cap="Probability of at least 2 of N people sharing a birthday in a uniform and non-uniform distribution."}
+uniform = c(p2s5, p2s6, p2s7)
+nonuniform = c(res5, res6, res7)
+q6df = data.frame(N=c('5', '6', '7'), Uniform=uniform, NonUniform=nonuniform)
+
+# Create a visualization of the comparison between uniform and non-uniform distributions
+par(mar = c(4, 5, 4, 1))
+barplot(rbind(uniform,nonuniform),
+        beside = TRUE,
+        names.arg = c(5, 6, 7),
+        xlab = "Number of people (N)",
+        ylab = "P(At least 2 people share a birthday)", 
+        main = "Comparison of Matching Birthdays\nUniform vs Non-Uniform Distribution",
+        col = c("red", "gold"))
+legend("topleft", 
+       legend = c("Uniform Distribution", "Non-Uniform Distribution"), 
+       fill = c("red", "gold"))
+for (i in 1:3) {
+  text((3*i-1.5), uniform[i]-0.005, sprintf("%1.3f%%", uniform[i]*100))
+  text((3*i-0.5), nonuniform[i]-0.005, sprintf("%1.3f%%", nonuniform[i]*100))
+}
+```
+
+From these results, we can see that the probability for two people to share a birthday **slightly increases** for the non-uniform distribution that we used. The increase in probability was only marginal in this case because the 7 groups we defined all had very similar probabilities per day, only spanning a small range from 0.00267 to 0.00285. If the probabilities spanned a greater range, or if the most common group had a higher probability, we would see a more noticeable effect on the chance of at least two people sharing a birthday increasing for the non-uniform distribution. This is because when a group has greater relative odds for a birthday, it becomes increasingly likely that multiple people will be born in that specific group because it has higher odds. As a result, the distribution with the lowest probability of shared birthdays is the uniform distribution because no group has a greater chance of resulting in a shared birthday than any other group.
+
+## Conclusion
+
+From our analysis of the birthday paradox, we observed the following:
+
+* The number of people required to have a 50% of at least two sharing a birthday is 23, both by statistical calculation and Monte Carlo simulation.
+* The expected value for number of birthdays that result in birth-mates is 20, lower than the number of people required for a 50% chance because of cases where more than 2 people share a birthday.
+* When looking at real world data, we do not observe a uniform distribution of birthdays. Weekday births are consistently more common than weekend births.
+* Smoothing the real world data by week provides a uniform distribution.
+* When calculating probabilities of shared birthday for a non-uniform distribution, the likelihood of shared birthdays increases, but only slightly.
+
+
+## Group Contributions
+
+* Ali Afkhami (30271805):
+  + Primary author of part 1, co-author of part 2.
+  + Assisted with consistent structure of tables, plots, and the overall report.
+
+* Daniela Mañozca Cruz (30262558):
+  + Primary author of part 4.
+  + Assisted with data and formula validation for part 5.
+
+* Evan Losier (30022571):
+  + Primary author of part 6 and conclusion.
+  + Assisted with part 5 data smoothing and overall report formatting.
+
+* Luisa Alejandra Sierra Guerra (30261956):
+  + Primary author of part 5.
+  + Assisted with advanced plot features and aesthetics.
+
+* Ruby Nouri Kermani (30261323):
+  + Primary author of part 3, co-author of part 2.
+  + Assisted with writing and explaining formulas for all parts.
+
+In addition to the items listed, all group members collaborated in-person and helped each other with a wide variety of tasks. All group members agree that total contribution to the project was fair and equal.
+
+
+## References
+
+Government of Malaysia Official Open Data Portal (2023). [Dataset] https://data.gov.my/data-catalogue/births
+
