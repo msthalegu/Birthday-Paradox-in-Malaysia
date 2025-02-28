@@ -3,7 +3,7 @@
 
 - **Ali Afkhami** - [LinkedIn](http://www.linkedin.com/in/ali-afkhami)  
 - **Daniela Mañozca Cruz** - [LinkedIn](https://www.linkedin.com/in/danielamanozcacruz)  
-- **Evan Losier**  
+- **Evan Losier** - [LinkedIn](https://www.linkedin.com/in/evan-losier/?originalSubdomain=ca)
 - **Luisa Alejandra Sierra Guerra** - [LinkedIn](https://www.linkedin.com/in/alejandra-sierra-guerra-profile/)  
 - **Ruby Nouri Kermani** - [LinkedIn](https://www.linkedin.com/in/parnian-nouri-kermani-532b86198)  
 
