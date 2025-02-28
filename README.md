@@ -67,6 +67,7 @@ $$
 
 
 The Expected Value $E(Y)$ is:
+
 $$
 E(Y) = \sum_{i = 1}^{N} E(Y_{i})
 $$
