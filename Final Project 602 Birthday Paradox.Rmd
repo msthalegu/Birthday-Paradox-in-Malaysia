@@ -1,0 +1,1267 @@
+---
+title: "Final Project 602 Birthday paradoz"
+author: "Luisa Alejandra Sierra Guera"
+date: "2025-02-09"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r}
+realdata = read.csv("births.csv")
+realdata = realdata[!(substr(realdata$date, 6,10) == "02-29"),]
+realdata = realdata[!(substr(realdata$date, 1,4) == "2023"),]
+realdata["Year"] = as.numeric(substr(realdata$date, 1,4))
+realdata["Month"] = as.numeric(substr(realdata$date, 6,7))
+realdata["Day"] = as.numeric(substr(realdata$date, 9,10))
+realdata["Weekday"] = as.POSIXlt(realdata$date)$wday
+minyear = min(realdata$Year)
+maxyear = max(realdata$Year)
+M = maxyear - minyear + 1
+
+getbirthsfordaymonth = function(j, k) {
+  #result = 0
+  #birthsjkM = sum(realdata[realdata$Weekday == j & realdata$Month == k,]$births) / M
+  #birthskM = sum(realdata[realdata$Month == k,]$births) / M
+  #for (m in (minyear:maxyear)) {
+  #  birthsjkm = sum(realdata[realdata$Weekday == j & realdata$Month == k & realdata$Year == m,]$births)
+  #  result = result + birthsjkm
+  #}
+  #result = result * (birthsjkM / birthskM)
+  result = sum(realdata[realdata$Weekday == j & as.numeric(realdata$Month) == k,]$births) / M
+  return (result)
+}
+
+totalbirthsperyear = sum(realdata$births) / M
+
+titles = c()
+daymonths = c()
+for (k in (1:12)) {
+  for (j in (0:6)) {
+	titles = c(titles, paste(k,j))
+	daymonths = c(daymonths, getbirthsfordaymonth(j, k)/totalbirthsperyear)
+  }
+}
+
+dist = data.frame(MonthDay=titles, Probability=daymonths)
+
+barplot(dist$Probability ~ dist$MonthDay)
+
+
+```
+
+```{r}
+weeklabel = c(rep((1:52), each=7), 52)
+allweeks = rep(0, each=52)
+for (i in (minyear:maxyear)) {
+  curryear = realdata[realdata$Year == i,]
+  curryear["Week"] = weeklabel
+  for (j in (1:52)) {
+    allweeks[j] = allweeks[j] + sum(curryear[curryear$Week == j,]$births)
+  }
+}
+totalbirths52wk = sum(allweeks)
+allweeksp = allweeks / totalbirths52wk
+
+barplot(allweeksp, main = "Smothed Probability of Births by Week from 1994 to 2022",
+        xlab = "Week of the Year", ylab = "Density", col = 'darkorchid1') 
+
+
+```
+
+```{r}
+allweeksp
+```
+
+
+# 1. 
+Tenemos que visualizar como seria la distribucion de lo siguiente 
+(20 hasta 29 de uno en uno)
+(de 30 hasta 100 de cinco en cinco)
+
+```{r}
+prob2share <- function(x) {
+  return (1 - (factorial(x) * choose(365, x) / 365 ** x))
+}
+
+
+N_values <- c(20:29, seq(30, 100, by = 5))
+probabilities <- sapply(N_values, prob2share)
+prob_table <- data.frame(N = N_values, Probability = probabilities)
+
+
+threshold <- 0.50
+N_threshold <- min(prob_table$N[prob_table$Probability >= threshold])
+
+
+library(ggplot2)
+ggplot(prob_table, aes(x = N, y = Probability)) +
+  geom_point(color = "purple", size = 3) +  
+  geom_line(color = "blue") +  
+  geom_hline(yintercept = threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  geom_vline(xintercept = N_threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  annotate("text", x = N_threshold + 4, y = threshold + 0.02, label = paste("N =", N_threshold), color = "black") + 
+  labs(title = "Probability of at Least Two Guests Sharing a Birthday",
+       x = "Number of Guests (N)", y = "Probability") +
+  theme_minimal()
+
+print(prob_table)
+```
+
+# 2. 
+
+
+```{r}
+set.seed(598)
+
+getgaps <- function(b) {
+  gaps <- outer(b, b, function(x, y) pmin(abs(x - y), 365 - abs(x - y)))
+  diag(gaps) <- Inf 
+  min(gaps)
+}
+
+
+simulate_shared_birthdays <- function(N, R = 1000) {
+  shared_count <- 0
+  for (r in 1:R) {
+    birthdays <- sample(1:365, N, replace = TRUE) 
+    if (getgaps(birthdays) == 0) { 
+      shared_count <- shared_count + 1
+    }
+  }
+  return(shared_count / R)
+}
+
+
+N_values <- c(20:29, seq(30, 100, by = 5))
+results <- data.frame(
+  N = N_values,
+  Exact_Prob = sapply(N_values, simulate_shared_birthdays)
+)
+
+
+
+threshold <- 0.60
+N_threshold <- min(results$N[results$Exact_Prob >= threshold])
+
+
+library(ggplot2)
+ggplot(results, aes(x = N, y = Exact_Prob)) +
+  geom_point(color = "purple", size = 3) +  
+  geom_line(color = "orange") +  
+  geom_hline(yintercept = threshold, linetype = "dashed", color = "pink", linewidth = 1) +
+  geom_vline(xintercept = N_threshold, linetype = "dashed", color = "pink", linewidth = 1) + 
+  annotate("text", x = N_threshold + 4, y = threshold + 0.02, label = paste("N =", N_threshold), color = "black") + 
+  labs(title = "Probability of at Least Two Guests Sharing a Birthday",
+       x = "Number of Guests (N)", y = "Probability") +
+  theme_minimal()
+
+
+
+```
+
+
+```{r}
+
+library(ggplot2)
+
+m_probability <- merge(prob_table, results, by = 'N')
+m_probability
+
+ggplot(m_probability, aes(x = N)) +
+  geom_line(aes(y = Exact_Prob, color = "Exact Probability", linetype = "Exact Probability"), size = 1.2) +  
+  geom_line(aes(y = Probability, color = "Simulated Probability", linetype = "Simulated Probability"), size = 1.2) +  
+  scale_color_manual(name = "Probability Type", values = c("Exact Probability" = "blue", "Simulated Probability" = "orange")) +  
+  scale_linetype_manual(name = "Probability Type", values = c("Exact Probability" = "dashed", "Simulated Probability" = "dashed")) +  
+  labs(title = "Probability of at Least Two Guests Sharing a Birthday",
+       x = "Number of Guests (N)", 
+       y = "Probability") +
+  theme_minimal()
+
+
+
+```
+
+
+# 3. 
+
+```{r}
+
+#Function to calculate the analytical expected value of Y (E(Y))
+expected_value_Y = function(N) {
+  N * (1 - (364/365)^(N-1))
+}
+
+#Function to estimate E(Y) using Monte Carlo simulation
+simulate_Y = function(N, R = 1000) {
+  birthmate_counts = replicate(R, {
+    birthdays = sample(1:365, N, replace = TRUE)
+    sum(duplicated(birthdays))  
+  })
+  mean(birthmate_counts)
+}
+
+#Define N values to be tested 
+N_values = c(2:29, seq(30, 100, by=5))
+
+
+#Create a data frame with both Analytical and Monte Carlo E(Y) results
+results = data.frame(
+  N = N_values,
+  Analytical_EY = sapply(N_values, expected_value_Y),
+  MonteCarlo_EY = sapply(N_values, simulate_Y)
+)
+
+print(results)
+```
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+
+#Find the minimum N where Analytical E(Y) reaches 1
+threshold_N <- results %>%
+  filter(Analytical_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+#Find the minimum N where Monte Carlo E(Y) reaches 1
+threshold_MC_N <- results %>%
+  filter(MonteCarlo_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+
+#Plot Analytical E(Y) and Monte Carlo E(Y) with their respective threshold N values
+ggplot(results, aes(x = N)) +
+  geom_line(aes(y = Analytical_EY, color = "Analytical E(Y)"), size = 1.2) +  
+  geom_line(aes(y = MonteCarlo_EY, color = "Monte Carlo E(Y)"), size = 1.2) + 
+  
+  # Add vertical dashed lines at the threshold N values
+  geom_vline(xintercept = threshold_N, linetype = "dashed", color = "cyan", size = 1.2) +  
+  geom_vline(xintercept = threshold_MC_N, linetype = "dashed", color = "magenta", size = 1.2) + 
+  
+  # Annotate the plot with the threshold N values
+  annotate("text", x = threshold_N + 2,  
+           y = max(results$Analytical_EY, na.rm = TRUE) * 0.5,  
+           label = paste("N=", threshold_N), 
+           color = "black", hjust = 1.2) + 
+  annotate("text", x = threshold_MC_N + 2,  
+           y = max(results$MonteCarlo_EY, na.rm = TRUE) * 0.5,  
+           label = paste("N=", threshold_MC_N), 
+           color = "black", hjust = 0) + 
+  scale_color_manual(values = c("Analytical E(Y)" = "cyan", "Monte Carlo E(Y)" = "magenta")) +  
+  labs(title = "Expected Number of Guests with Birthmates (E(Y))",
+       x = "Number of Guests (N)", 
+       y = "Expected Number of Guests with Birthmates",
+       color = "Legend") +
+  theme_minimal()
+
+
+```
+
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+
+threshold_N <- results %>%
+  filter(MonteCarlo_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+ggplot(results, aes(x = N)) +
+  geom_line(aes(y = MonteCarlo_EY, color = "Monte Carlo E(Y)"), size = 1.2) +  
+  geom_vline(xintercept = threshold_N, linetype = "dashed", color = "black", size = 1.2) +  
+  annotate("text", x = threshold_N + 2,  
+           y = max(results$Analytical_EY, na.rm = TRUE) * 0.3,  
+           label = paste("N minimal Montecarlo =", threshold_N), 
+           color = "black", hjust = 0) + 
+  scale_color_manual(values = c("Monte Carlo E(Y)" = "magenta")) +  
+  labs(title = "Expected Number of Guests with Birthmates (E(Y))",
+       x = "Number of Guests (N)", 
+       y = "Expected Number of Guests with Birthmates",
+       color = "Legend") +
+  theme_minimal()
+
+
+```
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+
+threshold_N <- results %>%
+  filter(Analytical_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+ggplot(results, aes(x = N)) +
+  geom_line(aes(y = Analytical_EY, color = "Analytical E(Y)"), size = 1.2) +  
+  geom_vline(xintercept = threshold_N, linetype = "dashed", color = "black", size = 1.2) +  
+  annotate("text", x = threshold_N + 2,  
+           y = max(results$Analytical_EY, na.rm = TRUE) * 0.5,  
+           label = paste("N minimal Analytical =", threshold_N), 
+           color = "black", hjust = 0) + 
+  scale_color_manual(values = c("Analytical E(Y)" = "cyan")) +  
+  labs(title = "Expected Number of Guests with Birthmates (E(Y))",
+       x = "Number of Guests (N)", 
+       y = "Expected Number of Guests with Birthmates",
+       color = "Legend") +
+  theme_minimal()
+
+```
+
+```{r}
+#threshold_N = N minimal Analytical
+#threshold_MC_N = N minimal Monte Carlo
+
+library(ggplot2)
+library(dplyr)
+
+
+threshold_N <- results %>%
+  filter(Analytical_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+
+threshold_MC_N <- results %>%
+  filter(MonteCarlo_EY >= 1) %>%
+  summarize(N_min = min(N)) %>%
+  pull(N_min)
+
+
+ggplot(results, aes(x = N)) +
+  geom_line(aes(y = Analytical_EY, color = "Analytical E(Y)"), size = 1.2) +  
+  geom_line(aes(y = MonteCarlo_EY, color = "Monte Carlo E(Y)"), size = 1.2) +  
+  geom_vline(xintercept = threshold_N, linetype = "dashed", color = "cyan", size = 1.2) +  
+  geom_vline(xintercept = threshold_MC_N, linetype = "dashed", color = "magenta", size = 1.2) +  
+  annotate("text", x = threshold_N + 2,  
+           y = max(results$Analytical_EY, na.rm = TRUE) * 0.5,  
+           label = paste("N=", threshold_N), 
+           color = "black", hjust = 1.2) + 
+  annotate("text", x = threshold_MC_N + 2,  
+           y = max(results$MonteCarlo_EY, na.rm = TRUE) * 0.5,  
+           label = paste("N=", threshold_MC_N), 
+           color = "black", hjust = 0) + 
+  scale_color_manual(values = c("Analytical E(Y)" = "cyan", "Monte Carlo E(Y)" = "magenta")) +  
+  labs(title = "Expected Number of Guests with Birthmates (E(Y))",
+       x = "Number of Guests (N)", 
+       y = "Expected Number of Guests with Birthmates",
+       color = "Legend") +
+  theme_minimal()
+
+
+
+```
+### GRafica del quinto 
+
+
+
+```{r}
+
+library(dplyr)
+data_bd <- read.csv("births.csv")
+
+# Convert birthdays to Date format
+data_bd$date <- as.Date(data_bd$date, format = "%Y-%m-%d")
+
+# Filter for dates: To take only possible live people
+#Original df contains data from 1920
+data_bd <- data_bd %>%
+  filter(date >= as.Date("1994-01-01"))
+
+
+# Extract the day of the week
+data_bd$Day_of_Week <- weekdays(data_bd$date)
+
+#Extract the month
+data_bd$Month<-format(data_bd$date, "%m")
+
+#Extract the year
+data_bd$Year<-format(data_bd$date, "%Y")
+
+
+data_bd <- data_bd[!(data_bd$Year == "2023"),]
+
+# Check new columns
+(data_bd)
+
+#Total bdys per month in all the years
+data_grp_month=data_bd%>% group_by(Month)  %>%
+                    summarise(total_bd = sum(births))
+
+data_grp_month
+
+#Total bdys per day per month in all the years
+data_grp_dm=data_bd%>% group_by(Day_of_Week,Month)  %>%
+                    summarise(total_bd = sum(births))
+data_grp_dm
+
+#Total bdys per day per month for every year (specific)
+data_grp_dmy=data_bd%>% group_by(Year,Month, Day_of_Week)  %>%
+                    summarise(total_bd = sum(births))
+data_grp_dmy
+
+#Average # of births on j weekdays of month k
+
+num_years <- length(unique(data_grp_dmy$Year))
+
+# Calculate the average number of births per weekday for each month
+avg_births_per_weekday_month <- data_bd %>%
+  group_by(Month, Day_of_Week) %>%
+  summarise(avg_bd = sum(births) / num_years) %>%
+  arrange(Month, Day_of_Week)  # Arrange for better readability
+
+# Display the summary table
+print(avg_births_per_weekday_month)
+avg_births_per_weekday_month_wide <- avg_births_per_weekday_month %>%
+  pivot_wider(names_from = Day_of_Week, values_from = avg_bd, 
+              values_fill = list(avg_bd = 0))  
+
+avg_births_per_weekday_month_wide <- avg_births_per_weekday_month_wide %>%
+  select(Month, `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`, `Saturday`, `Sunday`)
+
+head(avg_births_per_weekday_month_wide)
+
+
+```
+
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+#Creating a nw df 
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month %>%
+  transmute(Month_Day = paste(Month, Day_of_Week, sep = ","), avg_bd)
+avg_births_per_weekday_month_unified$Month <- NULL
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified[order(avg_births_per_weekday_month_unified$Month_Day), ]
+
+
+
+#Plot 
+color_map <- c("01" = "red", "02" = "blue", "03" = "green", "04" = "purple", "05" = "orange",
+               "06" = "pink", "07" = "brown", "08" = "cyan", "09" = "magenta", "10" = "yellow",
+               "11" = "gray", "12" = "black")
+
+
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified %>%
+  mutate(Month_Prefix = substr(as.character(Month_Day), 1, 2)) %>%
+  mutate(Color = color_map[Month_Prefix])
+
+
+avg_births_per_weekday_month_unified$Month_Prefix <- factor(avg_births_per_weekday_month_unified$Month_Prefix, levels = names(color_map))
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified %>%
+  mutate(Month_Day = gsub("Monday", "1", Month_Day),
+         Month_Day = gsub("Tuesday", "2", Month_Day),
+         Month_Day = gsub("Wednesday", "3", Month_Day),
+         Month_Day = gsub("Thursday", "4", Month_Day),
+         Month_Day = gsub("Friday", "5", Month_Day),
+         Month_Day = gsub("Saturday", "6", Month_Day),
+         Month_Day = gsub("Sunday", "7", Month_Day))
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified %>%
+  arrange(as.numeric(sub(",", "", Month_Day))) 
+
+ggplot(avg_births_per_weekday_month_unified, aes(x = as.factor(Month_Day), y = avg_bd, fill = Month_Prefix)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = color_map, name = "Month", labels = names(color_map)) +  
+  theme_minimal() +
+  labs(x = "The first bar of each color is Monday, and the last is Sunday", 
+       y = "Average Births", 
+       title = "Distribution of Births Across the Days of the Week") +
+  theme(axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank())  
+
+
+
+```
+```{r}
+avg_births_per_weekday_month_unified
+library(dplyr)
+
+# Modificar la columna en el mismo dataframe
+avg_births_per_weekday_month_unified <- avg_births_per_weekday_month_unified %>%
+  mutate(Month_Day = gsub("Monday", "1", Month_Day),
+         Month_Day = gsub("Tuesday", "2", Month_Day),
+         Month_Day = gsub("Wednesday", "3", Month_Day),
+         Month_Day = gsub("Thursday", "4", Month_Day),
+         Month_Day = gsub("Friday", "5", Month_Day),
+         Month_Day = gsub("Saturday", "6", Month_Day),
+         Month_Day = gsub("Sunday", "7", Month_Day))
+avg_births_per_weekday_month_unified
+
+```
+
+
+# Part 2 daniela 
+
+```{r}
+
+library(lubridate)
+
+#Total births per month 
+data_grp_month <- data_bd %>%
+  group_by(Month) %>%
+  summarise(total_bd = sum(births)) 
+
+# Number of days for every month
+days_per_month <- data_bd %>%
+  group_by(Month) %>%
+  summarise(total_days = ifelse(Month == "02", 28, max(day(date))), .groups = "drop")  # We are not considering leap years in this paradox
+
+# Compute average daily birth frequency
+avg_daily_births_per_month <- data_grp_month %>%
+  left_join(days_per_month, by = "Month") %>%
+  distinct(Month, .keep_all = TRUE) %>%
+  mutate(avg_daily_births = total_bd / total_days) %>%
+  arrange(Month)
+
+# Display the summary table
+print(avg_daily_births_per_month)
+
+
+library(ggplot2)
+
+
+color_map <- c("01" = "red", "02" = "blue", "03" = "green", "04" = "purple", "05" = "orange",
+               "06" = "pink", "07" = "brown", "08" = "cyan", "09" = "magenta", "10" = "yellow",
+               "11" = "gray", "12" = "black")
+
+ggplot(avg_daily_births_per_month, aes(x = Month, y = avg_daily_births, fill = Month)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = color_map) +  #
+  labs(title = "Average Daily Birth Frequency for Each Month",
+       x = "Month", y = "Average Births") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(fill = "none") 
+
+
+```
+
+# Quinto punto
+
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+data_bd <- read.csv("births.csv")
+data_bd$date <- as.Date(data_bd$date, format = "%Y-%m-%d")
+
+#Remove All Leap Year Records
+data_bd <- data_bd %>%
+  filter(!leap_year(date))  # Removes ALL records from leap years
+
+# Extract Day of the Year (1-365)
+data_bd$Day_of_year <- yday(data_bd$date)
+
+#Grouping data by day of the year
+data_dayofY <- data_bd %>%
+  group_by(Day_of_year) %>%
+  summarise(total_bd = sum(births)) 
+tail(data_dayofY)
+
+#Plotting data - we should compare this with the expected uniform distribution
+ggplot(data_dayofY, aes(x = Day_of_year, y = total_bd)) +
+  geom_bar(stat = "identity", position = "dodge", fill = "black", color = "blue") + 
+  labs(
+    title = "Total Births from 1994 to 2022 Years in Malaysia",  
+    x = "Day of the Year",  
+    y = "Total Births"  
+  ) +
+  theme_light() 
+
+#Expected counts (uniform distribution)
+expected_probabilities <- rep(1 / 365, 365)  # Equal probability for each day
+expected_counts <- sum(data_dayofY$total_bd) * expected_probabilities  # Scale to observed total
+
+# Chi-Square Test
+chi_test <- chisq.test(x = data_dayofY$total_bd, p = expected_probabilities)
+print(chi_test)
+
+```
+
+```{r}
+
+library(ggplot2)
+
+# Crear un vector de probabilidades esperadas
+expected_probabilities <- rep(1 / 365, 365)
+
+# Crear un data frame para graficar
+df <- data.frame(
+  Day_of_year = 1:365,
+  Probability = expected_probabilities
+)
+
+# Graficar la línea en rojo
+ggplot(df, aes(x = Day_of_year, y = Probability)) +
+  geom_line(color = "red", size = 1) +
+  labs(title = "Expected Probabilities Over the Year",
+       x = "Day of Year",
+       y = "Probability") +
+  theme_minimal()
+
+
+```
+
+Alejandra
+
+
+```{r}
+
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+
+
+library(dplyr)
+data_bd <- read.csv("births.csv")
+
+# Convert birthdays to Date format
+data_bd$date <- as.Date(data_bd$date, format = "%Y-%m-%d")
+
+# Filter for dates: To take only possible live people
+#Original df contains data from 1920
+data_bd <- data_bd %>%
+  filter(date < as.Date("2023-01-01"))
+
+data_bd$date <- as.Date(data_bd$date, format = "%Y-%m-%d")
+
+data_bd <- data_bd %>%                    #Remove All Leap Year Records
+  filter(!leap_year(date))                #Removes ALL records from leap years
+data_bd$Day_of_year <- yday(data_bd$date) #Extract Day of the Year (1-365)
+
+data_dayofY <- data_bd %>%                #Grouping data by day of the year
+  group_by(Day_of_year) %>%
+  summarise(total_bd = sum(births)) 
+
+head(data_dayofY)
+tail(data_dayofY)
+
+#Function to apply a 7-day moving average smoothing to daily data
+smooth_day <- function(x) {
+  x$Smoothed <- NA                      # Initialize a new column for smoothed values
+  n_days <- 365                         #Total number of days in a non-leap year
+  for (i in 1:n_days) {                 #Iterate over each day of the year
+    # Calculate indices for the 7-day window, wrapping around to the start of the year if necessary
+    indices <- (i - 1 + 0:6) %% n_days + 1
+    # Compute the mean of the 7-day window and store it in the Smoothed column
+    x$Smoothed[i] <- mean(x$total_bd[indices])
+  }
+  return(x)
+}
+Data_Smooth_day <- smooth_day(data_dayofY) #Apply the smoothing function to the daily data
+head(Data_Smooth_day)
+tail(Data_Smooth_day)
+
+#Function to create a weekly smoothed df
+create_smooth_week <- function(data) {
+  Week <- c()                      #Initialize vectors to store weekly results
+  Week_smoothed <- c()
+
+  for (week in 1:52) {             #Iterate over each week of the year
+    if (week <= 51) {              #Weeks 1 to 51: use 7 days
+      start <- (week - 1) * 7 + 1  #Starting index for the week
+      end <- start + 6             #Ending index for the week
+      smoothed_values <- data$Smoothed[start:end]  # Extract smoothed values for the week
+      Week_smoothed <- c(Week_smoothed, mean(smoothed_values)) # Calculate the weekly average
+    } else {  # Week 52: use 8 days to account for the remaining days in the year
+      start <- (week - 1) * 7 + 1
+      end <- start + 7
+      smoothed_values <- data$Smoothed[start:end]
+      Week_smoothed <- c(Week_smoothed, mean(smoothed_values))
+    }
+    Week <- c(Week, paste("Week", week))#Label the week ("Week 1", "Week 2")
+  }
+  Smooth_week <- data.frame( #Create the weekly smoothed dataframe
+    Week = Week,
+    Week_smoothed = Week_smoothed
+  )
+  
+  return(Smooth_week)
+}
+
+# Apply the weekly smoothing function to the smoothed daily data
+Smooth_week <- create_smooth_week(Data_Smooth_day)
+Smooth_week
+
+#Prepare for Plot 
+Smooth_week <- Smooth_week %>% #Create a new column with week numbers by extracting numeric values from the "Week" column
+  mutate(N_Week = as.numeric(gsub("Week ", "", Week)))  
+
+
+
+
+
+
+#Create the plot 
+ggplot(Smooth_week, aes(x = N_Week, y = Week_smoothed, group = 1)) +
+  geom_line(color = "blue", size = 1) +  
+  geom_point(color = "orange", size = 2) +  
+  labs(
+    title = "Observed Weekly Smoothed Birth Distribution",  
+    x = "Week of the Year",  
+    y = "Smoothed Births (Average)"  
+  ) +
+  scale_x_continuous(
+    breaks = seq(5, 52, by = 5),  
+    labels = seq(5, 52, by = 5)  
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16) 
+  )
+
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+Smooth_week <- Smooth_week %>%
+  mutate(Percentage = (Week_smoothed / sum(Week_smoothed)))
+Smooth_week
+#Create the plot 
+ggplot(Smooth_week, aes(x = N_Week, y = Percentage, group = 1)) +
+  geom_line(color = "blue", size = 1) +  
+  geom_point(color = "orange", size = 2) +  
+  labs(
+    title = "Observed Weekly Smoothed Birth Distribution",  
+    x = "Week of the Year",  
+    y = "Smoothed Births (Average)"  
+  ) +
+  scale_x_continuous(
+    breaks = seq(5, 52, by = 5),  
+    labels = seq(5, 52, by = 5)  
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16) 
+  )
+
+```
+```{r}
+
+weeklabel = c(rep((1:52), each=7), 52)
+allweeks = rep(0, each=52)
+for (i in (minyear:maxyear)) {
+  curryear = realdata[realdata$Year == i,]
+  curryear["Week"] = weeklabel
+  for (j in (1:52)) {
+    allweeks[j] = allweeks[j] + sum(curryear[curryear$Week == j,]$births)
+  }
+}
+totalbirths52wk = sum(allweeks)
+allweeksp = allweeks / totalbirths52wk
+
+barplot(allweeksp, main = "Proportion of Births by Week",
+        xlab = "Week of the Year", ylab = "Density")
+
+chi = chisq.test(x=allweeksp, p=c(rep(7/365, times=51),8/365))
+print(chi)
+
+```
+
+
+
+```{r}
+
+chi = chisq.test(x=Smooth_week$Percentage, p=c(rep(7/365, times=51),8/365))
+print(chi)
+
+
+
+# Mostrar resultados
+print(chisq_result)
+
+```
+
+```{r}
+
+# Crear el vector de valores esperados
+expected <- c(rep(7/365, 51), 8/365)
+n <- sum(expected)
+n
+# Crear un dataframe con los valores esperados
+df_expected <- data.frame(
+  N_Week = 1:52,  # Semanas del año
+  Expected = expected
+)
+
+# Graficar la línea roja de expected
+ggplot(df_expected, aes(x = N_Week, y = Expected)) +
+  geom_line(color = "red", size = 1) +  
+  labs(
+    title = "Expected Weekly Birth Distribution",  
+    x = "Week of the Year",  
+    y = "Expected Births (Average)"
+  ) +
+  scale_x_continuous(
+    breaks = seq(5, 52, by = 5),  
+    labels = seq(5, 52, by = 5)  
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16) 
+  )
+
+
+
+```
+
+
+```{r}
+realdata = read.csv("births.csv")
+realdata = realdata[!(substr(realdata$date, 6,10) == "02-29"),]
+realdata = realdata[!(substr(realdata$date, 1,4) == "2023"),]
+realdata["Year"] = as.numeric(substr(realdata$date, 1,4))
+realdata["Month"] = as.numeric(substr(realdata$date, 6,7))
+realdata["Day"] = as.numeric(substr(realdata$date, 9,10))
+realdata["Weekday"] = as.POSIXlt(realdata$date)$wday
+minyear = min(realdata$Year)
+maxyear = max(realdata$Year)
+M = maxyear - minyear + 1
+
+getbirthsfordaymonth = function(j, k) {
+  #result = 0
+  #birthsjkM = sum(realdata[realdata$Weekday == j & realdata$Month == k,]$births) / M
+  #birthskM = sum(realdata[realdata$Month == k,]$births) / M
+  #for (m in (minyear:maxyear)) {
+  #  birthsjkm = sum(realdata[realdata$Weekday == j & realdata$Month == k & realdata$Year == m,]$births)
+  #  result = result + birthsjkm
+  #}
+  #result = result * (birthsjkM / birthskM)
+  result = sum(realdata[realdata$Weekday == j & as.numeric(realdata$Month) == k,]$births) / M
+  return (result)
+}
+
+totalbirthsperyear = sum(realdata$births) / M
+
+titles = c()
+daymonths = c()
+for (k in (1:12)) {
+  for (j in (0:6)) {
+	titles = c(titles, paste(k,j))
+	daymonths = c(daymonths, getbirthsfordaymonth(j, k)/totalbirthsperyear)
+  }
+}
+
+dist = data.frame(MonthDay=titles, Probability=daymonths)
+
+barplot(dist$Probability ~ dist$MonthDay)
+
+```
+
+
+###### 6 PUNTO 
+
+
+```{r}
+data_bd
+data_bd$day <- day(data_bd$date)
+data_bd <- data_bd[, !names(data_bd) %in% "Year"]
+# Eliminar filas en base R
+data_bd <- data_bd[!(data_bd$Month == 2 & data_bd$day == 28), ]
+
+
+##DF withh all the births for every month 
+
+```
+
+
+
+
+```{r}
+
+# Agrupar por Month y sumar usando base R
+all_months <- aggregate(births ~ Month, data = data_bd, sum)
+names(all_months)[2] <- "Total Births"  # Renombrar la columna
+
+all_months <- all_months %>%
+  mutate(Probability = (`Total Births` / sum(`Total Births`)) * 100)
+
+all_months
+
+```
+```{r}
+
+Columna llamada 'Pi'
+Pi_1
+Pi_2 
+Pi_3 
+Pi_4 
+Pi_5 
+Pi_6 
+Pi_7
+
+Columna llamada 'Pi probability'
+Pi_1 <- all_months[12, 3] + all_months[1, 3] + all_months[2, 3]
+Pi_2 <- all_months[3, 3]
+Pi_3 <- all_months[3, 4]
+Pi_4 <- all_months[3, 5]
+Pi_5 <- all_months[3, 6] + all_months[3, 7] + all_months[3, 8] + all_months[3, 9]
+Pi_6 <- all_months[3, 10]
+Pi_7 <- all_months[3, 11]
+
+Columna llamada 'Days'
+Pi_1 <- 90
+Pi_2 <- 31
+Pi_3 <- 30
+Pi_4 <- 31
+Pi_5 <- 122
+Pi_6 <- 31
+Pi_7 <- 30
+
+
+
+
+
+
+```
+
+
+okay ahora quiero crear un nuevo df llamado seven_pi, en este nuevo df tendra tres columnas una llamada Pi, la segunda  Total Probability y otra llamada Day Probability,  y las filas seran las siguientes tendra 7 filas 
+Pi_1, Pi_2 y asi hasta Pi_7, 
+ahora para llenar el resto de la columnas sera asi, 
+
+Pi_1 sera la sumatoria del df llamado all_months y cogera la suma de 
+
+```{r}
+all_months[3, 4]
+```
+
+
+
+```{r}
+# Asumiendo que all_months es un data.frame con al menos 12 filas y 3 columnas.
+
+# Crear los nombres de Pi (Pi_1, Pi_2, ..., Pi_7)
+Pi <- c("Pi_1", "Pi_2", "Pi_3", "Pi_4", "Pi_5", "Pi_6", "Pi_7")
+
+# Crear la columna Pi_probability tomando los valores de all_months
+Pi_probability <- c(
+  all_months[12, 3] + all_months[1, 3] + all_months[2, 3],  # Pi_1
+  all_months[3, 3],  # Pi_2
+  all_months[4, 3],  # Pi_3
+  all_months[5, 3],  # Pi_4
+  all_months[6, 3] + all_months[7, 3] + all_months[8, 3] + all_months[9, 3],  # Pi_5
+  all_months[10, 3],  # Pi_6
+  all_months[11, 3]   # Pi_7
+)
+
+# Crear la columna Days con los valores proporcionados
+Days <- c(90, 31, 30, 31, 122, 31, 30)
+PI <- data.frame(Pi = Pi, Pi_probability = Pi_probability, Days = Days)
+# Crear la nueva columna 'Day_Probability' dividiendo 'Pi_probability' entre 'Days'
+PI$Day_Probability <- PI$Pi_probability / PI$Days
+
+# Ver el resultado
+print(PI)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# EVAN CODE 
+
+```{r}
+
+realdata = read.csv("births.csv")
+realdata = realdata[!(substr(realdata$date, 6,10) == "02-29"),]
+realdata = realdata[!(substr(realdata$date, 1,4) == "2023"),]
+realdata["Year"] = as.numeric(substr(realdata$date, 1,4))
+realdata["Month"] = as.numeric(substr(realdata$date, 6,7))
+realdata["Day"] = as.numeric(substr(realdata$date, 9,10))
+realdata["Weekday"] = as.POSIXlt(realdata$date)$wday
+minyear = min(realdata$Year)
+maxyear = max(realdata$Year)
+M = maxyear - minyear + 1
+
+getbirthsfordaymonth = function(j, k) {
+  #result = 0
+  #birthsjkM = sum(realdata[realdata$Weekday == j & realdata$Month == k,]$births) / M
+  #birthskM = sum(realdata[realdata$Month == k,]$births) / M
+  #for (m in (minyear:maxyear)) {
+  #  birthsjkm = sum(realdata[realdata$Weekday == j & realdata$Month == k & realdata$Year == m,]$births)
+  #  result = result + birthsjkm
+  #}
+  #result = result * (birthsjkM / birthskM)
+  result = sum(realdata[realdata$Weekday == j & as.numeric(realdata$Month) == k,]$births) / M
+  return (result)
+}
+
+totalbirthsperyear = sum(realdata$births) / M
+
+titles = c()
+daymonths = c()
+for (k in (1:12)) {
+  for (j in (0:6)) {
+	titles = c(titles, paste(k,j))
+	daymonths = c(daymonths, getbirthsfordaymonth(j, k)/totalbirthsperyear)
+  }
+}
+
+dist = data.frame(MonthDay=titles, Probability=daymonths)
+
+barplot(dist$Probability ~ dist$MonthDay)
+
+```
+
+
+
+
+```{r}
+weeklabel = c(rep((1:52), each=7), 52)
+allweeks = rep(0, each=52)
+for (i in (minyear:(maxyear-1))) {
+  curryear = realdata[realdata$Year == i,]
+  curryear = curryear[1:365,]
+  curryear["Week"] = weeklabel
+  for (j in (1:52)) {
+	allweeks[j] = allweeks[j] + sum(curryear[curryear$Week == j,]$births)
+  }
+}
+totalbirths52wk = sum(allweeks)
+allweeksp = allweeks / totalbirths52wk
+
+barplot(allweeks)
+
+chi = chisq.test(x=allweeksp, p=c(rep(7/365, times=51),8/365))
+print(chi)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#######################################################################
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+realdata = read.csv("births.csv")
+
+# Eliminar 29 de febrero y datos del año 2023
+realdata = realdata[!(substr(realdata$date, 6, 10) == "02-29"), ]
+realdata = realdata[!(substr(realdata$date, 1, 4) == "2023"), ]
+
+# Extraer Año, Mes, Día y Día de la Semana
+realdata["Year"] = as.numeric(substr(realdata$date, 1, 4))
+realdata["Month"] = as.numeric(substr(realdata$date, 6, 7))
+realdata["Day"] = as.numeric(substr(realdata$date, 9, 10))
+realdata["Weekday"] = as.POSIXlt(realdata$date)$wday  # 0 = Domingo, 6 = Sábado
+
+minyear = min(realdata$Year)
+maxyear = max(realdata$Year)
+M = maxyear - minyear + 1
+
+# Función para calcular nacimientos por día de la semana y mes
+getbirthsfordaymonth = function(j, k) {
+  result = sum(realdata[realdata$Weekday == j & as.numeric(realdata$Month) == k, ]$births) / M
+  return(result)
+}
+
+totalbirthsperyear = sum(realdata$births) / M
+
+# Crear DataFrame con las probabilidades de nacimiento por día/mes
+weekdays_names = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+dist = expand.grid(Month = 1:12, Weekday = 0:6) %>%
+  mutate(
+    Births_Prob = mapply(getbirthsfordaymonth, Weekday, Month) / totalbirthsperyear,
+    WeekdayName = factor(weekdays_names[Weekday + 1], levels = weekdays_names),  # Convertir a factor con orden
+    MonthName = factor(month.abb[Month], levels = month.abb)  # Convertir a factor con orden
+  )
+
+# Graficar con ggplot2
+ggplot(dist, aes(x = interaction(MonthName, WeekdayName, sep = " "), y = Births_Prob, group = 1)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red") +
+  labs(title = "Probabilidad de Nacimientos por Día de la Semana y Mes",
+       x = "Día de la Semana y Mes", 
+       y = "Probabilidad Normalizada") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+```{r}
+# Cargar paquetes necesarios
+library(tidyverse)
+library(lubridate)
+
+# Cargar los datos
+realdata <- read.csv("births.csv")
+
+# Convertir la columna 'date' a formato de fecha
+realdata$date <- as.Date(realdata$date)
+
+# Extraer día, mes y día de la semana
+realdata <- realdata %>%
+  mutate(
+    day = day(date),          # Día del mes (1-31)
+    month = month(date),      # Mes (1-12)
+    weekday = wday(date, label = TRUE) # Día de la semana (Lunes, Martes, etc.)
+  )
+
+# Ver los primeros registros
+head(realdata)
+
+
+
+
+```
+
+```{r}
+
+avg_births_day_month <- realdata %>%
+  group_by(day, month) %>%
+  summarise(avg_births = mean(births)) %>%
+  arrange(month, day)
+
+head(avg_births_day_month, 20)
+
+
+
+```
+
+
+```{r}
+
+daily_birth_freq <- realdata %>%
+  group_by(month) %>%
+  summarise(
+    total_births_month = sum(births),
+    days_in_month = n_distinct(day)
+  ) %>%
+  mutate(freq_daily = total_births_month / days_in_month)
+
+head(daily_birth_freq)
+
+
+```
+
+```{r}
+
+library(ggplot2)
+
+ggplot(avg_births_day_month, aes(x = day, y = factor(month), fill = avg_births)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  labs(title = "Promedio de nacimientos por día y mes",
+       x = "Día del mes", y = "Mes",
+       fill = "Nacimientos") +
+  theme_minimal()
+
+
+
+
+
+
+```
+
+
+
+```{r}
+
+ggplot(realdata, aes(x = weekday, y = births)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Distribución de nacimientos por día de la semana",
+       x = "Día de la semana", y = "Nacimientos") +
+  theme_minimal()
+
+
+
+```
+
+```{r}
+
+daily_counts <- realdata %>%
+  group_by(date) %>%
+  summarise(total_births = sum(births))
+
+# Vector con nacimientos diarios
+x.day <- daily_counts$total_births
+
+
+
+```
+
+
+##################### 6 punto 
+
+
+
+
