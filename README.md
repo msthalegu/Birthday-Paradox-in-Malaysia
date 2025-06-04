@@ -29,6 +29,7 @@ According to figure 1, which depicts the probability of at least two guests in a
 ## Part 2. Probability Using Monte-Carlo Simulation
 
 The probability that all $N$ people have unique birthdays
+
 $$
 P(\text{no shared birthdays}) = \frac{365}{365} \times \frac{364}{365} \times \frac{363}{365} \times ...\times \frac{365-N-1}{365}
 $$
