@@ -39,6 +39,7 @@ $$
 $$
 
 The probability that at least two people share a birthday:
+
 $$
 P(\text{at least 2 people share birthdays}) = 1 - P(\text{no shared birthdays})
 $$
